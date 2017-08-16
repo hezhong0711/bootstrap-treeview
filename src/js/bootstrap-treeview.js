@@ -80,7 +80,7 @@
     _default.searchOptions = {
         ignoreCase: true,
         exactMatch: false,
-		revealResults: true
+        revealResults: true
     };
 
     var Tree = function (element, options) {
@@ -1216,16 +1216,17 @@
      */
     Tree.prototype.searchOnlyShowResults = function (pattern, options) {
         if ($.trim(pattern).length === 0) {
-            this.clearSearch({render: true});
-            return;
+            this.clearSearch();
+            return [];
         }
 
-        this.search(pattern, options);
+        var match = this.search(pattern, options);
         this.tmpTree = this.tree;
         console.log("===" + pattern + "===");
         this.tree = getRelateTreeData(this.tree);
         this.render();
         this.tree = this.tmpTree;
+        return match;
     };
 
     var getRelateTreeData = function (data) {

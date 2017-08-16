@@ -619,6 +619,23 @@ $('#tree').treeview('search', [ 'Parent', {
 
 Triggers `searchComplete` event
 
+
+#### searchOnlyShowResults(pattern, options)
+
+Searches the tree view for nodes that match a given string, highlighting them in the tree, remove the others.
+
+Returns an array of matching nodes.
+
+```javascript
+$('#tree').treeview('searchOnlyShowResults', [ 'Parent', {
+  ignoreCase: true,     // case insensitive
+  exactMatch: false,    // like or equals
+  revealResults: true,  // reveal matching nodes
+}]);
+```
+
+Triggers `searchComplete` event
+
 #### selectNode(node | nodeId, options)
 
 Selects a given tree node, accepts node or nodeId.
