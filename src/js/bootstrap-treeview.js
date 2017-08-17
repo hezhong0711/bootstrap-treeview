@@ -40,6 +40,7 @@
         selectedIcon: '',
         checkedIcon: 'glyphicon glyphicon-check',
         uncheckedIcon: 'glyphicon glyphicon-unchecked',
+        childCheckedIcon: 'glyphicon glyphicon-expand',
 
         color: undefined, // '#000000',
         backColor: undefined, // '#FFFFFF',
@@ -307,6 +308,11 @@
                 node.state.selected = false;
             }
 
+            if (!node.state.hasOwnProperty('childChecked')) {
+                node.state.childChecked = false;
+            }
+
+
             // index nodes in a flattened structure for use later
             _this.nodes.push(node);
 
@@ -443,6 +449,36 @@
             // Check node
             node.state.checked = true;
 
+            // 勾选当前节点时，同时将所有父节点的 childChecked 设置为 true
+            var temp = node;
+            if (temp.parentId !== null) {
+                while (temp.parentId >= 0) {
+                    this.nodes[temp.parentId].state.childChecked = true;
+
+                    // 对父节点的所有一级子元素判断是否全部勾选，如果全部勾选，则父元素也勾选
+                    var father = this.nodes[temp.parentId];
+                    if (!father.state.checked) {
+                        var flag = true;
+                        $.each(father.nodes, function (k, v) {
+                            flag = flag && v.state.checked;
+                        });
+                        this.nodes[temp.parentId].state.checked = flag;
+                    }
+                    temp = this.nodes[temp.parentId];
+                }
+                this.nodes[temp.nodeId].state.childChecked = true;
+            }
+            // 勾选当前节点时，同时将所有的子节点 checked 状态设置为 true
+            temp = node;
+            if (temp.nodes && temp.nodes.length > 0) {
+                getRelateTreeData(node.nodes, function (data) {
+                    data.state.checked = true;
+                    data.state.childChecked = true;
+                    return null;
+                });
+
+            }
+
             if (!options.silent) {
                 this.$element.trigger('nodeChecked', $.extend(true, {}, node));
             }
@@ -451,6 +487,33 @@
 
             // Uncheck node
             node.state.checked = false;
+            node.state.childChecked = false;
+
+            // 取消勾选当前节点时, 所有父节点状态变化
+            var temp = node;
+            if (temp.parentId !== null) {
+                while (temp.parentId >= 0) {
+                    var father = this.nodes[temp.parentId];
+                    var flagChild = false;
+                    var flagCheck = true;
+                    $.each(father.nodes, function (k, v) {
+                        flagChild = flagChild || v.state.checked || v.state.childChecked;
+                        flagCheck = flagCheck && v.state.checked;
+                    });
+                    this.nodes[temp.parentId].state.childChecked = flagChild;
+                    this.nodes[temp.parentId].state.checked = flagCheck;
+                    temp = this.nodes[temp.parentId];
+                }
+            }
+            temp = node;
+            if (temp.nodes && temp.nodes.length > 0) {
+                getRelateTreeData(node.nodes, function (data) {
+                    data.state.checked = false;
+                    data.state.childChecked = false;
+                    return null;
+                });
+
+            }
             if (!options.silent) {
                 this.$element.trigger('nodeUnchecked', $.extend(true, {}, node));
             }
@@ -573,6 +636,9 @@
                 var classList = ['check-icon'];
                 if (node.state.checked) {
                     classList.push(_this.options.checkedIcon);
+                }
+                else if (node.state.childChecked) {
+                    classList.push(_this.options.childCheckedIcon);
                 }
                 else {
                     classList.push(_this.options.uncheckedIcon);
@@ -1223,13 +1289,21 @@
         var match = this.search(pattern, options);
         this.tmpTree = this.tree;
         console.log("===" + pattern + "===");
-        this.tree = getRelateTreeData(this.tree);
+        this.tree = getRelateTreeData(this.tree, getSearchResult);
         this.render();
         this.tree = this.tmpTree;
         return match;
     };
 
-    var getRelateTreeData = function (data) {
+    var getSearchResult = function (data) {
+        if (data.searchResult) {
+            return data;
+        } else {
+            return null;
+        }
+    };
+
+    var getRelateTreeData = function (data, func) {
         var _this = this;
         var arr = null;
 
@@ -1238,7 +1312,7 @@
         // } else {
         if (data instanceof Array) {
             $.each(data, function (k, v) {
-                var d = getRelateTreeData(v);
+                var d = getRelateTreeData(v, func);
                 if (d) {
                     if (!arr) {
                         arr = [];
@@ -1249,12 +1323,14 @@
         } else {
             if (data.nodes) {// 非叶子节点
                 // 如果匹配搜索结果，保留其所有子节点
-                if (data.searchResult) {
-                    return data;
+                var ret = func(data);
+                if (ret !== null) {
+                    return ret;
                 }
 
+
                 // 否则继续匹配子节点
-                var d = getRelateTreeData(data.nodes);
+                var d = getRelateTreeData(data.nodes, func);
                 if (d) {
                     var temp = $.extend(true, {}, data);
                     delete temp.nodes;
@@ -1266,8 +1342,9 @@
                 }
             } else {// 叶子节点
                 // 如果匹配搜索结果，保留其所有父节点
-                if (data.searchResult) {
-                    return data;
+                var ret = func(data);
+                if (ret !== null) {
+                    return ret;
                 }
             }
         }
